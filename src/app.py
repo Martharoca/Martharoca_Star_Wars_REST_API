@@ -8,7 +8,7 @@ from flask_swagger import swagger
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
-from models import db, User
+from models import db, User, Character #IMPORTAR TABLAS AQUI
 #from models import Person
 
 app = Flask(__name__)
@@ -36,13 +36,20 @@ def handle_invalid_usage(error):
 def sitemap():
     return generate_sitemap(app)
 
-@app.route('/user', methods=['GET'])
-def handle_hello():
 
+
+#ENDPOINTS A PARTIR DE AQUI
+@app.route('/people', methods=['GET'])  #ENDPOINT para obtener allPeople
+def get_all_people():
+    #aqui llamo a mi tabla, que esta en models.py
+    query_results = Character.query.all()
+    results = list(map(lambda item: item.serialize(), query_results)) #mapeo porque se trata de un array
+    if results == []:
+         return jsonify({"msg": "character not found"}), 404
     response_body = {
-        "msg": "Hello, this is your GET /user response "
+        "msg": "ok",
+        "results": results
     }
-
     return jsonify(response_body), 200
 
 # this only runs if `$ python src/app.py` is executed
