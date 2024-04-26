@@ -95,11 +95,11 @@ def get_all_users():
     return jsonify(response_body), 200
 
 
-@app.route('/user/favorites', methods=['GET'])  #ENDPOINT para obtener listado de favoritos que pertenecen al user actual
+@app.route('/users/favorites', methods=['GET'])  #ENDPOINT para obtener listado de favoritos que pertenecen al user actual
 @jwt_required()
 def get_list_favorites():
     email = get_jwt_identity()
-    user_query = User.query.filter_by(email="email").first()
+    user_query = User.query.filter_by(email=email).first()
     user_id=user_query.id
 
     favorite_character = FavoritosCharacter.query.filter_by(user_id=user_id).all()
@@ -132,10 +132,8 @@ def get_all_people():
 
 
 
-@app.route('/people/<int:people_id>', methods=['GET'])  #ENDPOINT para obtener un personaje
+@app.route('/people/<int:people_id>', methods=['GET'])  #ENDPOINT para obtener info de un personaje segun su id
 def get_one_people(people_id):
-    
-    #aqui llamo a mi tabla, que esta en models.py
     people_query = Character.query.filter_by(id=people_id).first()
     # query_results = Character.query.all()
     if people_query is None:
@@ -146,6 +144,16 @@ def get_one_people(people_id):
     }
     return jsonify(response_body), 200
 
+
+@app.route('/favorite/people/<int:people_id>', methods=['DELETE'])   #ENDPOINT para eliminar un character favorito con el id
+def delete_people(people_id):
+    people_deleted = Character.query.filter_by(id=people_id).first()
+    if people_deleted:
+        db.session.delete(people_deleted)
+        db.session.commit()
+        return jsonify({"msg": "character was successfully deleted"}), 200
+    else:
+        return jsonify({"msg": "character not found"}), 404 
 
 
 @app.route('/planets', methods=['GET'])  #ENDPOINT para listar todos los registros de planets en la db
@@ -175,7 +183,7 @@ def get_one_planet(planet_id):
     return jsonify(response_body), 200
 
 
-@app.route('/favorite/planet/<int:planet_id>', methods=['DELETE'])
+@app.route('/favorite/planet/<int:planet_id>', methods=['DELETE'])   #ENDPOINT para eliminar un planet favorito con el id
 def delete_planet(planet_id):
     planet_deleted = Planet.query.filter_by(id=planet_id).first()
     if planet_deleted:
@@ -226,7 +234,7 @@ def create_people():
 
 
 @app.route('/favorite/planet/<int:planet_id>', methods=['POST'])  #ENDPOINT para AÑADIR un planet fav al usuario actual
-@jwt_required()
+@jwt_required() #aun tengo que trabajar en el token de autenticación
 def add_fav_planet_to_user():
     email = get_jwt_identity()
     query_results = User.query.filter_by(email=email).first()
