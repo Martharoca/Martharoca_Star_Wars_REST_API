@@ -17,7 +17,7 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 
-app.config["JWT_SECRET_KEY"] = "super-secret"  # Change this!
+app.config["JWT_SECRET_KEY"] = "super-secret"  # AUTENTICACIÓN
 jwt = JWTManager(app)
 
 db_url = os.getenv("DATABASE_URL")
@@ -77,9 +77,7 @@ def login():
         return jsonify({"msg": "wrong email or password"}), 401
 
     access_token = create_access_token(identity=email)
-    return jsonify(access_token=access_token)
-
-
+    return jsonify(access_token=access_token), 200
 
 @app.route('/users', methods=['GET'])  #ENDPOINT para obtener allUsers
 def get_all_users():
@@ -145,20 +143,9 @@ def get_one_people(people_id):
     return jsonify(response_body), 200
 
 
-@app.route('/favorite/people/<int:people_id>', methods=['DELETE'])   #ENDPOINT para eliminar un character favorito con el id
-def delete_people(people_id):
-    people_deleted = Character.query.filter_by(id=people_id).first()
-    if people_deleted:
-        db.session.delete(people_deleted)
-        db.session.commit()
-        return jsonify({"msg": "character was successfully deleted"}), 200
-    else:
-        return jsonify({"msg": "character not found"}), 404 
-
 
 @app.route('/planets', methods=['GET'])  #ENDPOINT para listar todos los registros de planets en la db
 def get_all_planet():
-    #aqui llamo a mi tabla, que esta en models.py
     query_results = Planet.query.all()
     results = list(map(lambda item: item.serialize(), query_results))
     if results == []:
@@ -182,16 +169,6 @@ def get_one_planet(planet_id):
     }
     return jsonify(response_body), 200
 
-
-@app.route('/favorite/planet/<int:planet_id>', methods=['DELETE'])   #ENDPOINT para eliminar un planet favorito con el id
-def delete_planet(planet_id):
-    planet_deleted = Planet.query.filter_by(id=planet_id).first()
-    if planet_deleted:
-        db.session.delete(planet_deleted)
-        db.session.commit()
-        return jsonify({"msg": "planet was successfully deleted"}), 200
-    else:
-        return jsonify({"msg": "planet not found"}), 404 
 
 
 @app.route('/vehicle', methods=['GET'])  #ENDPOINT para obtener allVehicles
@@ -233,19 +210,19 @@ def create_people():
 
 
 
-@app.route('/favorite/planet/<int:planet_id>', methods=['POST'])  #ENDPOINT para AÑADIR un planet fav al usuario actual
-@jwt_required() #aun tengo que trabajar en el token de autenticación
-def add_fav_planet_to_user():
+@app.route('/favorite/planets/<int:planet_id>', methods=['POST'])  #ENDPOINT para AÑADIR un planet fav al usuario actual
+@jwt_required()
+def add_fav_planet_to_user(planet_id):
     email = get_jwt_identity()
     query_results = User.query.filter_by(email=email).first()
     user_id = query_results.id
-    planet_query = Planet.query.filter_by(id="planet_id").first()
+    planet_query = Planet.query.filter_by(id=planet_id).first()
     if planet_query is None:
         return ({"msg": "this planet doesn't exist"}), 400
     else:
-        favorite_planet_exist = FavoritosPlanet.query.filter_by(planet_id="planet_id", user_id=user_id).first()
+        favorite_planet_exist = FavoritosPlanet.query.filter_by(planet_id=planet_id, user_id=user_id).first()
         if favorite_planet_exist is None:
-            new_favorite_planet = FavoritosPlanet(planet_id="planet_id", user_id=user_id).first()
+            new_favorite_planet = FavoritosPlanet(planet_id=planet_id, user_id=user_id).first()
             db.session.add(new_favorite_planet)
             db.session.commit()
             return jsonify({"msg": "planet added"}), 200
@@ -255,18 +232,79 @@ def add_fav_planet_to_user():
 
 
 @app.route('/favorite/people/<int:people_id>', methods=['POST'])  #ENDPOINT para AÑADIR un character fav al usuario actual
-def add_fav_character_to_user():
-    body = request.json
-    favorite_character_query = FavoritosCharacter.query.filter_by(user_id=body["user_id"]).first()
-    if favorite_character_query is None:
-        new_favorite_character = FavoritosCharacter(user_id= body["user_id"], character_id= body["character_id"])
+@jwt_required()
+def add_fav_character_to_user(people_id):
+    email = get_jwt_identity()
+    user_query = User.query.filter_by(email=email).first()
+    user_id = user_query.id
+    character_query = Character.query.filter_by(id=people_id).first()
+    # body = request.json
+    # favorite_character_query = FavoritosCharacter.query.filter_by(user_id=body["user_id"]).first()
+    if character_query is None:
+        new_favorite_character = FavoritosCharacter(character_id= people_id, user_id= user_id)
         db.session.add(new_favorite_character)
         db.session.commit()
         return jsonify({"msg": "character added"}), 200
     else:
-        return jsonify({"msg": "character exist"}), 404
+        return jsonify({"msg": "character exist"}), 400
     
 
+@app.route('/favorite/people/<int:people_id>', methods=['DELETE'])   #ENDPOINT para eliminar un character favorito con el id
+@jwt_required()
+def delete_people(people_id):
+    email = get_jwt_identity()
+    user_query = User.query.filter_by(email=email).first()
+    user_id = user_query.id
+    people_query = Character.query.filter_by(id=people_id).first()
+    if people_query is None:
+        return ({"msg": "the character doesn't exist"}), 400
+    else:
+        people_query = FavoritosCharacter.query.filter_by(people_id=people_id, user_id=user_id).first()
+    if people_query:
+        db.session.delete(people_query)
+        db.session.commit()
+        return jsonify({"msg": "character was successfully deleted"}), 200
+    else:
+        return jsonify({"msg": "character not found"}), 404 
+    
+
+@app.route('/favorite/planet/<int:planet_id>', methods=['DELETE'])   #ENDPOINT para eliminar un planet favorito con el id
+@jwt_required()
+def delete_planet(planet_id):
+    email = get_jwt_identity()
+    user_query = User.query.filter_by(email=email).first()
+    user_id = user_query.id
+    planet_query = Planet.query.filter_by(id=planet_id).first()
+    if planet_query is None:
+        return ({"msg": "the planet doesn't exist"}), 400
+    else:
+        planet_query = FavoritosPlanet.query.filter_by(planet_id=planet_id, user_id=user_id).first()
+    if planet_query:
+        db.session.delete(planet_query)
+        db.session.commit()
+        return jsonify({"msg": "planet was successfully deleted"}), 200
+    else:
+        return jsonify({"msg": "planet not found"}), 404 
+    
+
+
+@app.route('/favorite/vehicle/<int:vehicle_id>', methods=['DELETE'])   #ENDPOINT para eliminar un vehicle favorito con el id
+@jwt_required()
+def delete_vehicle(vehicle_id):
+    email = get_jwt_identity()
+    user_query = User.query.filter_by(email=email).first()
+    user_id = user_query.id
+    vehicle_query = Vehicle.query.filter_by(id=vehicle_id).first()
+    if vehicle_query is None:
+        return ({"msg": "the vehicle doesn't exist"}), 400
+    else:
+        vehicle_deleted = FavoritosVehicle.query.filter_by(vehicle_id=vehicle_id, user_id=user_id).first()
+        if vehicle_deleted:
+            db.session.delete(vehicle_deleted)
+            db.session.commit()
+            return jsonify({"msg": "vehicle was successfully deleted"}), 200
+        else:
+            return jsonify({"msg": "vehicle not found"}), 404     
 
 # this only runs if `$ python src/app.py` is executed
 if __name__ == '__main__':
